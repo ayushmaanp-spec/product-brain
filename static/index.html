@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product Brain — Shared PM &amp; Codebase Knowledge Graph</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col">
+  <!-- Top Navigation Bar -->
+  <header class="border-b border-slate-800 px-5 py-3 flex items-center justify-between bg-slate-900">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white">PB</div>
+      <div>
+        <h1 class="text-base font-semibold text-white leading-tight">Product Brain</h1>
+        <p class="text-xs text-slate-400">GitHub Codebase Truth + Obsidian Memory + Claude Code Copilot</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <span id="status-pill" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+        Loading status...
+      </span>
+      <button onclick="refreshAllRepos()" id="refresh-repos-btn"
+        class="text-xs px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200">
+        Refresh All Repos
+      </button>
+      <button onclick="openInObsidian()"
+        class="text-xs px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 font-medium text-white">
+        Open in Obsidian &nearr;
+      </button>
+    </div>
+  </header>
+
+  <!-- Main 3-Column Studio -->
+  <div class="flex-1 grid grid-cols-12 overflow-hidden">
+    <!-- COLUMN 1: Knowledge Sources & Scope -->
+    <aside class="col-span-3 border-r border-slate-800 p-4 overflow-y-auto space-y-5 bg-slate-900/40">
+      <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-[11px] font-bold uppercase tracking-wider text-purple-300">Obsidian Vault</h2>
+          <span class="text-[10px] text-emerald-400">&bull; Live Watcher On</span>
+        </div>
+        <input id="vault-path" type="text"
+          class="w-full px-2.5 py-1.5 text-xs rounded bg-slate-800 border border-slate-700 text-slate-200 mb-2" />
+        <button onclick="saveVaultPath()"
+          class="w-full py-1.5 text-xs font-medium rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">
+          Link &amp; Sync Vault
+        </button>
+      </div>
+
+      <div>
+        <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">1. Connect GitHub Repo</h2>
+        <input id="repo-url" type="text" placeholder="https://github.com/owner/repo"
+          class="w-full px-3 py-2 text-xs rounded bg-slate-800 border border-slate-700 mb-1.5" />
+        <input id="gh-token" type="password" placeholder="GitHub Token (for private / internal repos)"
+          class="w-full px-3 py-1.5 text-xs rounded bg-slate-800 border border-slate-700 mb-2" />
+        <button onclick="syncRepo()" id="sync-btn"
+          class="w-full py-2 text-xs font-medium rounded bg-indigo-600 hover:bg-indigo-500">
+          + Map Repo to Obsidian
+        </button>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Repositories (Scope)</h2>
+          <span class="text-[10px] text-slate-500">Check to query</span>
+        </div>
+        <div id="repo-list" class="space-y-1.5 text-xs"></div>
+      </div>
+
+      <div class="border-t border-slate-800 pt-4">
+        <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">2. Add Peer PM PRD / Spec</h2>
+        <input id="pm-name" type="text" placeholder="PM Name (e.g., Sarah)"
+          class="w-full px-3 py-1.5 text-xs rounded bg-slate-800 border border-slate-700 mb-1.5" />
+        <input id="pm-file" type="file" accept=".md,.txt"
+          class="w-full text-xs text-slate-300 mb-2" />
+        <button onclick="uploadDoc()"
+          class="w-full py-2 text-xs font-medium rounded bg-emerald-600 hover:bg-emerald-500">
+          + Add PRD to Shared Brain
+        </button>
+      </div>
+
+      <div>
+        <h2 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Peer PM Workspaces</h2>
+        <div id="pm-list" class="space-y-1.5 text-xs"></div>
+      </div>
+    </aside>
+
+    <!-- COLUMN 2: Obsidian Note & Interactive Graph Viewer -->
+    <main class="col-span-4 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-950">
+      <div class="border-b border-slate-800 px-4 py-2.5 bg-slate-900/70 flex items-center justify-between gap-2">
+        <select id="note-selector" onchange="loadSelectedNote()"
+          class="flex-1 text-xs px-2.5 py-1.5 rounded bg-slate-800 border border-slate-700 text-slate-100 truncate">
+        </select>
+        <button onclick="openCurrentNoteInObsidian()" title="Open this exact note in Obsidian"
+          class="text-xs px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 whitespace-nowrap">
+          Obsidian &nearr;
+        </button>
+      </div>
+
+      <div class="border-b border-slate-800 px-4 py-1.5 bg-slate-900/40 flex items-center justify-between">
+        <div class="flex gap-1.5">
+          <button onclick="switchCenterTab('reader')" id="tab-reader"
+            class="text-xs px-2.5 py-1 rounded bg-indigo-600 text-white font-medium">
+            Markdown Note
+          </button>
+          <button onclick="switchCenterTab('graph')" id="tab-graph"
+            class="text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">
+            Interactive Node Map
+          </button>
+        </div>
+        <button onclick="saveEditedNote()" id="save-note-btn"
+          class="text-xs px-2.5 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30">
+          Save Changes
+        </button>
+      </div>
+
+      <div id="reader-pane" class="flex-1 p-4 overflow-y-auto">
+        <textarea id="note-editor"
+          class="w-full h-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-xs font-mono text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500 resize-none"
+          placeholder="Select a repository report, peer PM spec, or drafted PRD above to view or edit it..."></textarea>
+      </div>
+
+      <div id="graph-pane" class="hidden flex-1 flex flex-col">
+        <div class="px-4 py-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+          <span class="text-xs text-slate-400">Select repo map:</span>
+          <select id="graph-repo-select" onchange="loadGraphIframe()"
+            class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200"></select>
+        </div>
+        <iframe id="graph-iframe" class="flex-1 w-full bg-slate-950" src="about:blank"></iframe>
+      </div>
+    </main>
+
+    <!-- COLUMN 3: Embedded Claude Code Copilot -->
+    <section class="col-span-5 flex flex-col overflow-hidden bg-slate-950">
+      <div class="border-b border-slate-800 px-4 py-2.5 bg-slate-900/70 flex items-center justify-between">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-300">Claude Code Copilot</h2>
+          <p class="text-[11px] text-slate-400">Connected to your Obsidian Vault &amp; Global Knowledge Graph</p>
+        </div>
+        <button onclick="resetChat()"
+          class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+          New Session
+        </button>
+      </div>
+
+      <!-- Chat Feed -->
+      <div id="chat-feed" class="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-3.5 text-xs text-slate-300 leading-relaxed">
+          <strong class="text-white block mb-1">Welcome to Product Brain.</strong>
+          I have direct access to your synced GitHub repository graphs, peer PM specs in Obsidian, and your PRDs folder. Use a quick workflow below or ask anything across your company's codebase and product docs.
+        </div>
+      </div>
+
+      <!-- Quick PM Action Chips -->
+      <div class="px-4 pt-2 pb-1.5 border-t border-slate-800 bg-slate-900/40 flex flex-wrap gap-1.5">
+        <button onclick="triggerQuickAction('ask', 'Summarize the architecture, core modules, and key technical constraints of the selected repositories.')"
+          class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+          Explain Architecture
+        </button>
+        <button onclick="triggerQuickAction('overlap', 'Check all peer PM notes and existing services for any overlapping specs, prior decisions, or dependencies around: ')"
+          class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30">
+          Check Peer PM Overlap
+        </button>
+        <button onclick="triggerQuickAction('path', 'AuthService -> BillingService')"
+          class="text-[11px] px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30">
+          Trace A &rarr; B Path
+        </button>
+        <button onclick="triggerQuickAction('prd', 'Draft a comprehensive PRD grounded in the selected repos and peer PM notes for: ')"
+          class="text-[11px] px-2.5 py-1 rounded-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 font-medium">
+          + Draft PRD to Obsidian
+        </button>
+      </div>
+
+      <!-- Prompt Input -->
+      <div class="p-4 pt-2 bg-slate-900/40">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-[11px] text-slate-400">Mode:</span>
+          <select id="copilot-mode"
+            class="text-xs px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200">
+            <option value="ask">Ask Question (Cross-Repo + Peer PMs)</option>
+            <option value="overlap">Check Peer PM Overlap &amp; Conflicts</option>
+            <option value="path">Trace Dependency Path (A -&gt; B)</option>
+            <option value="prd">Draft Grounded PRD (Saves to Obsidian PRDs/)</option>
+          </select>
+        </div>
+        <textarea id="prompt-input" rows="3"
+          placeholder="Ask a technical question across repos, check what another PM wrote, or describe a PRD to generate..."
+          class="w-full p-2.5 text-xs rounded-lg bg-slate-800 border border-slate-700 text-slate-100 mb-2 focus:outline-none focus:border-indigo-500"></textarea>
+        <button onclick="sendToClaude()" id="send-btn"
+          class="w-full py-2 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white">
+          Run in Claude Code
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let appState = { repos: [], pms: [], notes: [], vault_path: '', claude_installed: false, total_nodes: 0 };
+    let claudeSessionId = null;
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function refreshState(preserveNotePath = null) {
+      const res = await fetch('/api/state');
+      appState = await res.json();
+
+      document.getElementById('vault-path').value = appState.vault_path;
+      const pill = document.getElementById('status-pill');
+      pill.textContent = appState.claude_installed
+        ? `Claude Code Ready \u2022 ${appState.total_nodes} Graph Nodes`
+        : `Graph Mode \u2022 ${appState.total_nodes} Nodes (Install Claude Code CLI for Copilot)`;
+
+      // Populate Repo List
+      const repoList = document.getElementById('repo-list');
+      repoList.innerHTML = appState.repos.length ? '' : '<p class="text-slate-500">No repos connected yet.</p>';
+      appState.repos.forEach((r) => {
+        repoList.innerHTML += `
+          <div class="flex items-center justify-between bg-slate-800/70 px-2.5 py-1.5 rounded">
+            <label class="flex items-center gap-2 cursor-pointer truncate">
+              <input type="checkbox" class="repo-check" value="${esc(r.name)}" checked />
+              <span class="font-medium text-slate-200 truncate">${esc(r.name)}</span>
+            </label>
+            <button onclick="inspectRepo('${esc(r.name)}')" class="text-[11px] text-indigo-400 hover:underline ml-2">Inspect</button>
+          </div>`;
+      });
+
+      // Populate PM List
+      const pmList = document.getElementById('pm-list');
+      pmList.innerHTML = appState.pms.length ? '' : '<p class="text-slate-500">No PM docs added yet.</p>';
+      appState.pms.forEach((p) => {
+        pmList.innerHTML += `
+          <label class="flex items-center justify-between bg-slate-800/70 px-2.5 py-1.5 rounded cursor-pointer">
+            <span class="flex items-center gap-2 truncate">
+              <input type="checkbox" class="pm-check" value="${esc(p.name)}" checked />
+              <span class="truncate">${esc(p.name)}</span>
+            </span>
+            <span class="text-[11px] text-slate-400">${p.docs.length} docs</span>
+          </label>`;
+      });
+
+      // Populate Note Selector
+      const noteSel = document.getElementById('note-selector');
+      const currentVal = preserveNotePath || noteSel.value;
+      noteSel.innerHTML = '';
+      appState.notes.forEach((n) => {
+        const opt = document.createElement('option');
+        opt.value = n.rel_path;
+        opt.textContent = `[${n.category}] ${n.title}`;
+        noteSel.appendChild(opt);
+      });
+      if (currentVal && [...noteSel.options].some(o => o.value === currentVal)) {
+        noteSel.value = currentVal;
+      }
+      if (noteSel.options.length > 0) {
+        await loadSelectedNote();
+      }
+
+      // Populate Interactive Graph Selector
+      const graphSel = document.getElementById('graph-repo-select');
+      graphSel.innerHTML = '';
+      appState.repos.filter(r => r.has_html).forEach((r) => {
+        const opt = document.createElement('option');
+        opt.value = r.name;
+        opt.textContent = r.name;
+        graphSel.appendChild(opt);
+      });
+    }
+
+    async function loadSelectedNote() {
+      const relPath = document.getElementById('note-selector').value;
+      if (!relPath) return;
+      const res = await fetch(`/api/notes/content?rel_path=${encodeURIComponent(relPath)}`);
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('note-editor').value = data.content;
+      }
+    }
+
+    async function saveEditedNote() {
+      const relPath = document.getElementById('note-selector').value;
+      const content = document.getElementById('note-editor').value;
+      if (!relPath) return;
+      const btn = document.getElementById('save-note-btn');
+      btn.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/notes/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rel_path: relPath, content })
+        });
+        if (!res.ok) return alert('Failed to save note');
+        await refreshState(relPath);
+      } finally {
+        btn.textContent = 'Save Changes';
+      }
+    }
+
+    function inspectRepo(repoName) {
+      switchCenterTab('reader');
+      const target = `Repos/${repoName}/00-Architecture-Report.md`;
+      const sel = document.getElementById('note-selector');
+      if ([...sel.options].some(o => o.value === target)) {
+        sel.value = target;
+        loadSelectedNote();
+      }
+    }
+
+    function switchCenterTab(tab) {
+      const isReader = tab === 'reader';
+      document.getElementById('reader-pane').classList.toggle('hidden', !isReader);
+      document.getElementById('graph-pane').classList.toggle('hidden', isReader);
+      document.getElementById('tab-reader').className = isReader
+        ? 'text-xs px-2.5 py-1 rounded bg-indigo-600 text-white font-medium'
+        : 'text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700';
+      document.getElementById('tab-graph').className = !isReader
+        ? 'text-xs px-2.5 py-1 rounded bg-indigo-600 text-white font-medium'
+        : 'text-xs px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700';
+      if (!isReader) loadGraphIframe();
+    }
+
+    function loadGraphIframe() {
+      const repo = document.getElementById('graph-repo-select').value;
+      if (repo) {
+        document.getElementById('graph-iframe').src = `/repos/${encodeURIComponent(repo)}/graph.html`;
+      }
+    }
+
+    async function saveVaultPath() {
+      const vault_path = document.getElementById('vault-path').value;
+      const res = await fetch('/api/vault', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vault_path })
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail || 'Failed to link vault');
+      await refreshState();
+    }
+
+    async function openInObsidian(relPath = null) {
+      await fetch('/api/obsidian/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rel_path: relPath })
+      });
+    }
+
+    function openCurrentNoteInObsidian() {
+      const relPath = document.getElementById('note-selector').value || '00-Home.md';
+      openInObsidian(relPath);
+    }
+
+    async function syncRepo() {
+      const url = document.getElementById('repo-url').value;
+      const token = document.getElementById('gh-token').value;
+      const btn = document.getElementById('sync-btn');
+      btn.textContent = 'Cloning & Mapping...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/repos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_url: url, github_token: token || null })
+        });
+        const data = await res.json();
+        if (!res.ok) return alert(data.detail || 'Repo sync failed');
+        await refreshState(`Repos/${data.repo}/00-Architecture-Report.md`);
+      } finally {
+        btn.textContent = '+ Map Repo to Obsidian';
+        btn.disabled = false;
+      }
+    }
+
+    async function refreshAllRepos() {
+      const btn = document.getElementById('refresh-repos-btn');
+      btn.textContent = 'Refreshing...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/repos/refresh-all', { method: 'POST' });
+        const data = await res.json();
+        await refreshState();
+        alert(`Refreshed ${data.refreshed.length} repo(s) and updated Obsidian.`);
+      } finally {
+        btn.textContent = 'Refresh All Repos';
+        btn.disabled = false;
+      }
+    }
+
+    async function uploadDoc() {
+      const pmName = document.getElementById('pm-name').value.trim();
+      const fileInput = document.getElementById('pm-file');
+      if (!pmName || !fileInput.files.length) return alert('Enter a PM name and pick a .md or .txt file');
+      const form = new FormData();
+      form.append('file', fileInput.files[0]);
+      const res = await fetch(`/api/pms/${encodeURIComponent(pmName)}/docs`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) return alert('Upload failed');
+      await refreshState(`PMs/${data.pm}/${data.file}`);
+    }
+
+    function triggerQuickAction(mode, starterPrompt) {
+      document.getElementById('copilot-mode').value = mode;
+      const input = document.getElementById('prompt-input');
+      input.value = starterPrompt;
+      input.focus();
+    }
+
+    function resetChat() {
+      claudeSessionId = null;
+      document.getElementById('chat-feed').innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-slate-400">
+          Started a fresh Claude Code session.
+        </div>`;
+    }
+
+    function appendMessage(role, text, createdPrd = null) {
+      const feed = document.getElementById('chat-feed');
+      const wrapper = document.createElement('div');
+      wrapper.className = role === 'user'
+        ? 'bg-indigo-950/60 border border-indigo-500/30 rounded-lg p-3 text-xs text-indigo-100 whitespace-pre-wrap'
+        : 'bg-slate-900 border border-slate-800 rounded-lg p-3.5 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed';
+      wrapper.textContent = text;
+
+      if (createdPrd) {
+        const bar = document.createElement('div');
+        bar.className = 'mt-3 pt-2.5 border-t border-slate-800 flex items-center gap-2';
+        bar.innerHTML = `
+          <span class="text-[11px] text-emerald-400 font-medium">Saved to Obsidian: ${esc(createdPrd)}</span>
+          <button onclick="openInObsidian('${esc(createdPrd)}')"
+            class="text-[11px] px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white">
+            Open PRD in Obsidian &nearr;
+          </button>`;
+        wrapper.appendChild(bar);
+      }
+
+      feed.appendChild(wrapper);
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    async function sendToClaude() {
+      const prompt = document.getElementById('prompt-input').value.trim();
+      const mode = document.getElementById('copilot-mode').value;
+      if (!prompt) return;
+
+      const selected_repos = [...document.querySelectorAll('.repo-check:checked')].map(el => el.value);
+      const selected_pms = [...document.querySelectorAll('.pm-check:checked')].map(el => el.value);
+      const btn = document.getElementById('send-btn');
+
+      appendMessage('user', `[${mode.toUpperCase()}] ${prompt}`);
+      document.getElementById('prompt-input').value = '';
+      btn.textContent = 'Claude Code is thinking & traversing graph...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            mode,
+            selected_repos,
+            selected_pms,
+            session_id: claudeSessionId
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          appendMessage('assistant', 'Error: ' + (data.detail || 'Claude Code request failed'));
+          return;
+        }
+        claudeSessionId = data.session_id || claudeSessionId;
+        appendMessage('assistant', data.answer, data.created_prd);
+        await refreshState(data.created_prd || null);
+      } finally {
+        btn.textContent = 'Run in Claude Code';
+        btn.disabled = false;
+      }
+    }
+
+    refreshState();
+  </script>
+</body>
+</html>

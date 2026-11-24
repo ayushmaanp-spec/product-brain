@@ -1,0 +1,4 @@
+graphifyy
+fastapi
+uvicorn
+python-multipart
